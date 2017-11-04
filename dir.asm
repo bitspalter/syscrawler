@@ -84,23 +84,26 @@ NOSLASH1:     mov    byte [rsi + rax],      0x00
               mov   qword [rsp + pFile],    rax          ; save file handle
 
               ;/////////////////////////////////////////////////////////////////
-              ; read getdents64
+              ; LOOP1 until rax == 0x00 || rax == -1
               ;/////////////////////////////////////////////////////////////////
               
-              mov          rdi,      qword [rsp + pFile] ; file handle  
+DENT64:       mov          rdi,      qword [rsp + pFile] ; file handle  
               mov          rsi,             rsp
               add          rsi,             pDIR64       ; pBuffer  getdents64
               mov          rdx,             cDIR64       ; cBuffer
               mov          rax,             SYS_DIR64    ; getdents64 syscall
               syscall
  
-              cmp          rax,             1            ; check if fd in eax > 0 (ok) 
+              cmp          rax,             0            ; check if fd in eax > -1 (ok) 
               jl           DIR_ERR                       ; cannot read folder.  Exit with error status 
             
+              cmp          rax,             0            ; check if fd in eax > 0 (ok)
+              je           FCLOSE
+              
               mov   qword [rsp + cBuffer],  rax          ; save read bytes
             
               ;/////////////////////////////////////////////////////////////////
-              ; LOOP 
+              ; LOOP2 until qword [rsp + cBuffer] == 0x00
               ;/////////////////////////////////////////////////////////////////
               
               
@@ -222,10 +225,20 @@ NEXT:         xor          rax,             rax
               jne          DIR1_LOOP                         ; loop again
             
               ;/////////////////////////////////////////////////////////////////
-              ; LOOP END 
+              ; LOOP2 END 
               ;/////////////////////////////////////////////////////////////////
               
-              mov          rdi,      qword [rsp + pFile]     ; file handle
+              jmp          DENT64
+              
+              ;/////////////////////////////////////////////////////////////////
+              ; LOOP1 END 
+              ;/////////////////////////////////////////////////////////////////
+              
+              ;/////////////////////////////////////////////////////////////////
+              ; Close File Handle
+              ;/////////////////////////////////////////////////////////////////
+              
+FCLOSE:       mov          rdi,      qword [rsp + pFile]     ; file handle
               mov          rax,             SYS_CLOSE        ; close syscall
               syscall
 
